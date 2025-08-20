@@ -1,4 +1,3 @@
-# app/crud.py
 from sqlalchemy.orm import Session
 from .models import Task
 from .schemas import TaskCreate, TaskUpdate

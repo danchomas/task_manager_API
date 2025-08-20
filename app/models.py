@@ -1,7 +1,6 @@
-# app/models.py
 import uuid
 from sqlalchemy import Column, String, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID  # Fallback to String for SQLite
+from sqlalchemy.dialects.postgresql import UUID
 from .database import Base
 from enum import Enum
 
