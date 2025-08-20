@@ -1,5 +1,4 @@
-# app/schemas.py
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, ConfigDict
 from enum import Enum
 from typing import Optional
 
@@ -29,5 +28,4 @@ class TaskUpdate(TaskBase):
 class Task(TaskBase):
     id: UUID4
 
-    class Config:
-        from_attributes = True  # For ORM mode
+    model_config = ConfigDict(from_attributes=True)
