@@ -1,8 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
-from fastapi import Depends
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./task_manager.db"  # Use :memory: for tests if needed
+SQLALCHEMY_DATABASE_URL = "sqlite:///./task_manager.db"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
