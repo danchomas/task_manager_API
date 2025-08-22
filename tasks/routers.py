@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
-from ..schemas import Task, TaskCreate, TaskUpdate
-from ..crud import TaskCreateManager, TaskGetManager, TaskUpdateManager, TaskDeleteManager
-from ..database import get_db
+from schemas import Task, TaskCreate, TaskUpdate
+from crud import TaskCreateManager, TaskGetManager, TaskUpdateManager, TaskDeleteManager
+from database import get_db
 
 router = APIRouter()
 
