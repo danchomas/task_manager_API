@@ -6,8 +6,15 @@ import uvicorn
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
-
+app = FastAPI(
+    title="Task Manager API",
+    description="A simple task manager API",
+    version="0.0.1",
+    docs_url="/docs",
+    openapi_security=[{
+        "BearerAuth": []
+    }]
+)
 app.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
 app.include_router(user_router, prefix="/users", tags=["users"])
 
