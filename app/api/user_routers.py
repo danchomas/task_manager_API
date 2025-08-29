@@ -30,7 +30,12 @@ def get_user_endpoint(user_id: UUID, db: Session = Depends(get_db)):
 @router.post("/login", response_model=UserSchema)
 def login_user_endpoint(credentials: UserLoginSchema, db: Session = Depends(get_db)):
     user_manager = UserLoginManager(db)
-    db_user = user_manager.login_user(credentials.username, credentials.password)
+
+    db_user = user_manager.login_user(
+        credentials.username,
+        credentials.password
+    )
+
     if db_user is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return db_user

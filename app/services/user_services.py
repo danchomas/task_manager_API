@@ -56,8 +56,8 @@ class UserLoginManager:
     def __init__(self, db: Session):
         self.db = db
 
-    def login_user(self, email: str, password: str) -> User:
-        user = self.db.query(User).filter(User.email == email).first()
-        if user and user.verify_password(password):
+    def login_user(self, username: str, password: str) -> User:
+        user = self.db.query(User).filter(User.username == username).first()
+        if user and user.password == password:
             return user
         return None
