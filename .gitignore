@@ -210,3 +210,6 @@ __marimo__/
 *.db
 1.py
 report.txt
+
+app/copy_project.py
+app/project_backup.txt

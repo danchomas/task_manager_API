@@ -14,7 +14,6 @@ def create_task_endpoint(task: TaskCreateSchema, db: Session = Depends(get_db)):
     task_manager = TaskCreateManager(db)
     return task_manager.create_task(task)
 
-
 @router.get("/{task_id}", response_model=TaskSchema)
 def get_task_endpoint(task_id: UUID, db: Session = Depends(get_db)):
     task_manager = TaskGetManager(db)

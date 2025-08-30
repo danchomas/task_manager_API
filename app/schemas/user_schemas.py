@@ -43,6 +43,8 @@ class UserLoginSchema(BaseModel):
     username: str
     password: str
 
+class UserLoginResponseSchema(BaseModel):
+    access_token: str
 
 class UserSchema(UserBase):
     id: UUID
