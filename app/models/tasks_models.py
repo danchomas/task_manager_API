@@ -19,6 +19,6 @@ class Task(Base):
     name = Column(String, index=True)
     description = Column(String)
     status = Column(SQLEnum(TaskStatus, name="taskstatus", values_callable=lambda x: [e.value for e in x]), default=TaskStatus.CREATED)
-    user_id = Column(UUID, ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     user = relationship("User", back_populates="tasks")
