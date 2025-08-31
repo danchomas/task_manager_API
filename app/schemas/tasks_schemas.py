@@ -1,7 +1,7 @@
 from pydantic import BaseModel, UUID4, ConfigDict
 from enum import Enum
 from typing import Optional
-from .user_schemas import UserSchema
+from .user_schemas import UserSchemaForTasks
 
 class TaskStatusSchema(str, Enum):
     CREATED = "created"
@@ -25,6 +25,6 @@ class TaskUpdateSchema(BaseModel):
 class TaskSchema(TaskBase):
     id: UUID4
     user_id: UUID4
-    user: Optional[UserSchema] = None
+    user: UserSchemaForTasks
 
     model_config = ConfigDict(from_attributes=True)

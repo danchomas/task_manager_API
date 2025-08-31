@@ -48,6 +48,11 @@ class UserLoginResponseSchema(BaseModel):
 
 class UserSchema(UserBase):
     id: UUID
+    username: str
     created_at: datetime
+
+class UserSchemaForTasks(BaseModel):
+    id: UUID
+    username: str
 
     model_config = ConfigDict(from_attributes=True)
