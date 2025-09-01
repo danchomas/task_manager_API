@@ -6,8 +6,19 @@ from uuid import UUID
 from schemas.tasks_schemas import TaskSchema, TaskCreateSchema, TaskUpdateSchema
 from services.tasks_services import TaskCreateManager, TaskGetManager, TaskUpdateManager, TaskDeleteManager
 from core.database import get_db
+from core.dependencies import get_current_user
+from models.user_models import User
 
 router = APIRouter()
+
+@router.get("/current_user_tasks", response_model=List[TaskSchema], status_code=status.HTTP_200_OK)
+def get_current_user_tasks_endpoint(
+    task: TaskSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task_manager = TaskGetManager(db)
+    return task_manager.get_tasks(current_user.id)
 
 @router.post("/", response_model=TaskSchema, status_code=status.HTTP_201_CREATED)
 def create_task_endpoint(task: TaskCreateSchema, db: Session = Depends(get_db)):
