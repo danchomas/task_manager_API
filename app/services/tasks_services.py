@@ -17,7 +17,7 @@ class TaskRepository:
 class TaskCreateManager(TaskRepository):
     def create_task(self, task: TaskCreateSchema, user_id: UUID) -> Task:
         task_data = task.model_dump()
-        task_data['user_id'] = user_id  # Добавить user_id
+        task_data['user_id'] = user_id
         db_task = Task(**task_data)
         self.db.add(db_task)
         self.db.commit()
@@ -25,10 +25,10 @@ class TaskCreateManager(TaskRepository):
         return db_task
 
 class TaskGetManager(TaskRepository):
-    def get_tasks(self, user_id: UUID, skip: int = 0, limit: int = 100) -> list[Task]:
+    def get_tasks_user_id(self, user_id: UUID) -> list[Task]:
         return self.db.query(Task).filter(
-            Task.user_id == user_id  # Фильтровать по user_id
-        ).offset(skip).limit(limit).all()
+            Task.user_id == user_id
+        ).all()
 
 class TaskUpdateManager(TaskRepository):
     def update_task(self, task_id: UUID, task: TaskUpdateSchema) -> Task | None:
