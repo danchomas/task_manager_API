@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import List
+from typing import List, Optional, Dict
 
 from schemas.user_schemas import UserCreateSchema, UserLoginSchema, UserSchema, UserLoginResponseSchema
 from services.user_services import UserCreateManager, UserLoginManager, UserGetManager
@@ -12,7 +12,8 @@ router = APIRouter()
 
 @router.get("/all_users")
 async def get_users(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    isLogin: Optional[Dict] = Depends(auth.verify_token)
 ) -> List[UserSchema]:
     users = UserGetManager(db).get_all_users()
     return users
