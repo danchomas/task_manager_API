@@ -37,6 +37,16 @@ async def create_user(
     return user
 
 @router.post("/login")
-async def login(db: Session = Depends(get_db), user: UserLoginSchema = Depends(UserLoginSchema)):
-    result = UserLoginManager(db).login_user(user.username, user.password)
-    return {"access": 200}
+async def login(db: Session = Depends(get_db), creds: UserLoginSchema = Depends(UserLoginSchema)):
+    user = UserLoginManager(db).login_user(creds.username, creds.password)
+    if user:
+        token_values = {
+            "email": user.email,
+            "username": user.username
+        }
+        return {
+            "token": auth.create_access_token(token_values),
+            "type": "Bearer"
+        }
+    else:
+        raise HTTPException(status_code=401, detail="invalid credentials")

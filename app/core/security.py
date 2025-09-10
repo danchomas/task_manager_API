@@ -5,7 +5,7 @@ SECRET_KEY = "your_secret_key"
 ALGORITHM = "HS256"
 
 class Auth:
-    def __init__(self, secret_key=SECRET_KEY, algorithm=ALGORITHM):
+    def __init__(self, secret_key, algorithm):
         self.secret_key = secret_key
         self.algorithm = algorithm
 
@@ -19,4 +19,4 @@ class Auth:
         except JWTError:
             return None
 
-auth = Auth()
+auth = Auth(SECRET_KEY, ALGORITHM)
