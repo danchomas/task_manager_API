@@ -48,7 +48,6 @@ class UserLoginResponseSchema(BaseModel):
 
 class UserSchema(UserBase):
     id: UUID
-    username: str
     created_at: datetime
 
 class UserSchemaForTasks(BaseModel):
