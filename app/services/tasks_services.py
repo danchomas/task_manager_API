@@ -15,7 +15,7 @@ class TaskRepository:
         ).first()
 
 class TaskCreateManager(TaskRepository):
-    def create_task(self, task: TaskCreateSchema, user_id: UUID) -> Task:
+    def create_task(self, task: TaskCreateSchema, user_id: int) -> Task:
         task_data = task.model_dump()
         task_data['user_id'] = user_id
         db_task = Task(**task_data)
@@ -25,7 +25,7 @@ class TaskCreateManager(TaskRepository):
         return db_task
 
 class TaskGetManager(TaskRepository):
-    def get_tasks_user_id(self, user_id: UUID) -> list[Task]:
+    def get_tasks_user_id(self, user_id: int) -> list[Task]:
         return self.db.query(Task).filter(
             Task.user_id == user_id
         ).all()
