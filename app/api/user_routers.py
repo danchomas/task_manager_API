@@ -10,10 +10,9 @@ from core.security import auth
 
 router = APIRouter()
 
-@router.get("/all_users")
+@router.get("/all_users", dependencies=[Depends(auth.verify_token)])
 async def get_users(
-    db: Session = Depends(get_db),
-    isLogin: Optional[Dict] = Depends(auth.verify_token)
+    db: Session = Depends(get_db)
 ) -> List[UserSchema]:
     users = UserGetManager(db).get_all_users()
     return users
