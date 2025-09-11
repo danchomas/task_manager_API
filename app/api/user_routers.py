@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Path
+from fastapi import APIRouter, Depends, HTTPException, status, Path, Security
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional, Dict
@@ -10,7 +10,7 @@ from core.security import auth
 
 router = APIRouter()
 
-@router.get("/all_users", dependencies=[Depends(auth.verify_token)])
+@router.get("/all_users", dependencies=[Security(auth.verify_token)])
 async def get_users(
     db: Session = Depends(get_db)
 ) -> List[UserSchema]:
