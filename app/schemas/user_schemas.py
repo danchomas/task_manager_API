@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from uuid import UUID
 from datetime import datetime
 import re
 
@@ -47,11 +46,11 @@ class UserLoginResponseSchema(BaseModel):
     access_token: str
 
 class UserSchema(UserBase):
-    id: UUID
+    id: int
     created_at: datetime
 
 class UserSchemaForTasks(BaseModel):
-    id: UUID
+    id: int
     username: str
 
     model_config = ConfigDict(from_attributes=True)

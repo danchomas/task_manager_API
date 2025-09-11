@@ -42,7 +42,8 @@ async def login(db: Session = Depends(get_db), creds: UserLoginSchema = Depends(
     if user:
         token_values = {
             "email": user.email,
-            "username": user.username
+            "username": user.username,
+            "id": user.id
         }
         return {
             "token": auth.create_access_token(token_values),

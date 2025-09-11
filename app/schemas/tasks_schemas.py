@@ -23,7 +23,7 @@ class TaskUpdateSchema(BaseModel):
 
 class TaskSchema(TaskBase):
     id: UUID4
-    user_id: UUID4
+    user_id: int
     user: UserSchemaForTasks
 
     model_config = ConfigDict(from_attributes=True)
