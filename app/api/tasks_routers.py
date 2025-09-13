@@ -9,6 +9,7 @@ from schemas.user_schemas import UserSchema, UserBase
 from services.tasks_services import TaskCreateManager, TaskGetManager, TaskUpdateManager, TaskDeleteManager
 from core.database import get_db
 from core.security import auth
+from models.tasks_models import TaskStatus
 
 router = APIRouter()
 
@@ -39,3 +40,19 @@ async def create_task(
 
     task_manager = TaskCreateManager(db)
     return task_manager.create_task(task, user_id)
+
+
+@router.post("/update_task")
+async def update_task(
+    task: TaskUpdateSchema,
+    db: Session = Depends(get_db),
+    payload: dict = Depends(auth.verify_token)
+) -> TaskSchema:
+    user_id = payload.get('id')
+
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+    task_manager = TaskUpdateManager(db)
+    return task_manager.update_task(task, user_id, task.id)

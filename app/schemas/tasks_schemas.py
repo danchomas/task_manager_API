@@ -20,6 +20,7 @@ class TaskUpdateSchema(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[TaskStatusSchema] = None
+    id: UUID4
 
 class TaskSchema(TaskBase):
     id: UUID4
