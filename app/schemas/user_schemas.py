@@ -54,3 +54,6 @@ class UserSchemaForTasks(BaseModel):
     username: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserUpdateSchema(UserBase):
+    pass

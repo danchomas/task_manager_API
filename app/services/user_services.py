@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from models.user_models import User
-from schemas.user_schemas import UserCreateSchema
+from schemas.user_schemas import UserCreateSchema, UserUpdateSchema
 from uuid import UUID
 from fastapi import HTTPException, status
 
@@ -61,3 +61,45 @@ class UserLoginManager:
         if user and user.password == password:
             return user
         return None
+
+class UserUpdateManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def update_user(self, id: str, user: UserUpdateSchema) -> User:
+        # Находим пользователя для обновления
+        existing_user = self.db.query(User).filter(User.id == id).first()
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Проверяем конфликты email/username у других пользователей
+        if user.email:
+            # Проверяем email у других пользователей
+            email_conflict = self.db.query(User).filter(
+                User.email == user.email,
+                User.id != id  # исключаем текущего пользователя
+            ).first()
+            if email_conflict:
+                raise HTTPException(status_code=400, detail="Email is already registered")
+
+        if user.username:
+            # Проверяем username у других пользователей
+            username_conflict = self.db.query(User).filter(
+                User.username == user.username,
+                User.id != id  # исключаем текущего пользователя
+            ).first()
+            if username_conflict:
+                raise HTTPException(status_code=400, detail="Username is already registered")
+
+        # Обновляем только переданные поля
+        update_data = user.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(existing_user, field, value)
+
+        try:
+            self.db.commit()
+            self.db.refresh(existing_user)
+            return existing_user
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail="Database integrity error")
