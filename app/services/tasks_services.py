@@ -48,8 +48,8 @@ class TaskUpdateManager(TaskRepository):
         return db_task
 
 class TaskDeleteManager(TaskRepository):
-    def delete_task(self, task_id: UUID) -> Task | None:
-        db_task = self.get_task(task_id)
+    def delete_task(self, task_id: UUID, user_id: int) -> Task | None:
+        db_task = self.get_task(task_id, user_id)
         if db_task:
             self.db.delete(db_task)
             self.db.commit()

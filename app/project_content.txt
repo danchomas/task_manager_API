@@ -1,0 +1,737 @@
+
+============================================================
+Файл: ./main.py
+============================================================
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from api.tasks_routers import router as tasks_router
+from api.user_routers import router as user_router
+from core.database import engine, Base
+import uvicorn
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Task Manager API",
+    description="A simple task manager API",
+    version="0.0.1",
+    docs_url="/docs",
+    # openapi_security=[{  # Убрано, так как это некорректно для APIKeyHeader
+    #     "BearerAuth": []
+    # }]
+)
+
+# Подключаем роутеры
+app.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
+app.include_router(user_router, prefix="/users", tags=["users"])
+
+# Монтируем папку frontend как статику
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+
+# Корневой маршрут для обслуживания index.html
+@app.get("/", response_class=HTMLResponse)
+async def serve_root():
+    with open("frontend/index.html") as f:
+        return HTMLResponse(content=f.read())
+
+if __name__ == "__main__":
+    uvicorn.run('main:app', host="127.0.0.1", port=8000, reload=True)
+============================================================
+Файл: ./project_content.txt
+============================================================
+
+============================================================
+Файл: ./1.py
+============================================================
+import os
+
+def is_text_file(filepath):
+    text_extensions = {
+        '.py', '.js', '.html', '.css', '.txt', '.json', '.md', '.yaml', '.yml',
+        '.xml', '.sql', '.sh', '.ts', '.tsx', '.jsx', '.ini', '.cfg', '.conf'
+    }
+    _, ext = os.path.splitext(filepath)
+    return ext.lower() in text_extensions
+
+def should_ignore_dir(dirname):
+    # Игнорировать папки виртуального окружения
+    ignored_dirs = {'venv', 'env', '.venv', '.env', '__pycache__'}
+    return dirname in ignored_dirs
+
+def copy_project_files_to_txt(output_filename='project_content.txt'):
+    with open(output_filename, 'w', encoding='utf-8') as output_file:
+        for root, dirs, files in os.walk('.'):
+            # Убираем из обхода игнорируемые папки
+            dirs[:] = [d for d in dirs if not should_ignore_dir(d)]
+            
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                if is_text_file(filepath):
+                    output_file.write(f"\n{'='*60}\n")
+                    output_file.write(f"Файл: {filepath}\n")
+                    output_file.write(f"{'='*60}\n")
+
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as input_file:
+                            content = input_file.read()
+                            output_file.write(content)
+                    except UnicodeDecodeError:
+                        output_file.write(f"[Файл {filepath} содержит бинарные данные и не может быть прочитан как текст.]\n")
+                    except Exception as e:
+                        output_file.write(f"[Ошибка при чтении {filepath}: {e}]\n")
+
+if __name__ == "__main__":
+    copy_project_files_to_txt()
+    print("Содержимое текстовых файлов проекта (без venv и других игнорируемых папок) записано в 'project_content.txt'")
+============================================================
+Файл: ./core/security.py
+============================================================
+import jwt
+from fastapi import HTTPException, Security
+from fastapi.security import APIKeyHeader
+
+
+SECRET_KEY = "your_secret_key"
+ALGORITHM = "HS256"
+
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+
+class Auth:
+    def __init__(self, secret_key: str, algorithm: str):
+        self.secret_key = secret_key
+        self.algorithm = algorithm
+
+    def create_access_token(self, data: dict):
+        return jwt.encode(data, self.secret_key, algorithm=self.algorithm)
+
+    def verify_token(self, api_key: str = Security(api_key_header)):
+        if not api_key:
+            raise HTTPException(status_code=403, detail="Could not validate credentials")
+        try:
+            # Убираем "Bearer " из заголовка, если есть
+            if api_key.startswith("Bearer "):
+                api_key = api_key[7:]
+            payload = jwt.decode(api_key, self.secret_key, algorithms=[self.algorithm])
+            return payload
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+
+auth = Auth(SECRET_KEY, ALGORITHM)
+============================================================
+Файл: ./core/database.py
+============================================================
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./task_manager.db"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+
+def get_db() -> Session:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+============================================================
+Файл: ./core/__init__.py
+============================================================
+
+============================================================
+Файл: ./schemas/__init__.py
+============================================================
+
+============================================================
+Файл: ./schemas/tasks_schemas.py
+============================================================
+from pydantic import BaseModel, UUID4, ConfigDict
+from enum import Enum
+from typing import Optional
+from .user_schemas import UserSchemaForTasks
+
+class TaskStatusSchema(str, Enum):
+    CREATED = "created"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+class TaskBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    status: TaskStatusSchema = TaskStatusSchema.CREATED
+
+class TaskCreateSchema(TaskBase):
+    pass
+
+class TaskUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[TaskStatusSchema] = None
+    id: UUID4
+
+class TaskSchema(TaskBase):
+    id: UUID4
+    user_id: int
+    user: UserSchemaForTasks
+
+    model_config = ConfigDict(from_attributes=True)
+
+============================================================
+Файл: ./schemas/user_schemas.py
+============================================================
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from datetime import datetime
+import re
+
+class UserBase(BaseModel):
+    username: str = Field(
+        min_length=4,
+        max_length=20
+    )
+    email: EmailStr
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        if not re.match(r"^[a-zA-Z0-9_]+$", value):
+            raise ValueError('Username must contain only letters, numbers, and underscores')
+        return value
+
+
+class UserCreateSchema(UserBase):
+    username: str = Field(
+        min_length=4,
+        max_length=20
+    )
+    password: str = Field(
+        min_length=5
+    )
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        pattern = r"^[A-Za-z\d@$!%*?&]{5,}$"
+        if not re.match(pattern, value):
+            raise ValueError(
+                'Password must be at least 5 characters long and contain: '
+                'only letters, numbers, and special characters (@$!%*?&)'
+            )
+        return value
+
+
+class UserLoginSchema(BaseModel):
+    username: str
+    password: str
+
+class UserLoginResponseSchema(BaseModel):
+    access_token: str
+
+class UserSchema(UserBase):
+    id: int
+    created_at: datetime
+
+class UserSchemaForTasks(BaseModel):
+    id: int
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserUpdateSchema(UserBase):
+    pass
+
+============================================================
+Файл: ./tests/test_tasks.py
+============================================================
+# tests/test_tasks.py
+import pytest
+from uuid import UUID, uuid4
+
+def test_create_task(client):
+    response = client.post(
+        "/tasks/",
+        json={"name": "Test Task", "description": "Test Description"}
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "Test Task"
+    assert data["description"] == "Test Description"
+    assert data["status"] == "created"
+    assert UUID(data["id"])
+
+def test_get_task(client):
+    create_response = client.post(
+        "/tasks/",
+        json={"name": "Test Task"}
+    )
+    task_id = create_response.json()["id"]
+
+    response = client.get(f"/tasks/{task_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == task_id
+    assert data["name"] == "Test Task"
+
+def test_get_nonexistent_task(client):
+    response = client.get(f"/tasks/{uuid4()}")
+    assert response.status_code == 404
+
+def test_get_tasks(client):
+    for i in range(3):
+        client.post("/tasks/", json={"name": f"Task {i}"})
+
+    response = client.get("/tasks/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 3
+
+def test_update_task(client):
+    create_response = client.post("/tasks/", json={"name": "Original Task"})
+    task_id = create_response.json()["id"]
+
+    update_response = client.put(
+        f"/tasks/{task_id}",
+        json={"name": "Updated Task", "status": "in_progress"}
+    )
+    assert update_response.status_code == 200
+    data = update_response.json()
+    assert data["name"] == "Updated Task"
+    assert data["status"] == "in_progress"
+
+def test_update_nonexistent_task(client):
+    response = client.put(
+        f"/tasks/{uuid4()}",
+        json={"name": "Updated Task"}
+    )
+    assert response.status_code == 404
+
+def test_delete_task(client):
+    create_response = client.post("/tasks/", json={"name": "To be deleted"})
+    task_id = create_response.json()["id"]
+
+    delete_response = client.delete(f"/tasks/{task_id}")
+    assert delete_response.status_code == 200
+
+    get_response = client.get(f"/tasks/{task_id}")
+    assert get_response.status_code == 404
+
+def test_delete_nonexistent_task(client):
+    response = client.delete(f"/tasks/{uuid4()}")
+    assert response.status_code == 404
+
+def test_invalid_status(client):
+    response = client.post(
+        "/tasks/",
+        json={"name": "Test", "status": "invalid_status"}
+    )
+    assert response.status_code == 422
+
+============================================================
+Файл: ./tests/conftest.py
+============================================================
+# tests/conftest.py
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.database import Base, get_db
+from main import app
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture(scope="function")
+def test_db():
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(scope="function")
+def client(test_db):
+    def override_get_db():
+        try:
+            yield test_db
+        finally:
+            test_db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+============================================================
+Файл: ./api/friends_routers.py
+============================================================
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/my_friends")
+async def get_my_friends():
+    pass
+
+============================================================
+Файл: ./api/__init__.py
+============================================================
+
+============================================================
+Файл: ./api/user_routers.py
+============================================================
+from fastapi import APIRouter, Depends, HTTPException, status, Path, Security
+from sqlalchemy.orm import Session
+from uuid import UUID
+from typing import List, Optional, Dict
+
+from schemas.user_schemas import UserCreateSchema, UserLoginSchema, UserSchema, UserUpdateSchema
+from services.user_services import UserCreateManager, UserLoginManager, UserGetManager, UserUpdateManager
+from core.database import get_db
+from core.security import auth
+
+router = APIRouter()
+
+@router.get("/all_users", dependencies=[Security(auth.verify_token)])
+async def get_users(
+    db: Session = Depends(get_db)
+) -> List[UserSchema]:
+    users = UserGetManager(db).get_all_users()
+    return users
+
+@router.get("/{user_id}")
+async def get_user_by_id(
+    db: Session = Depends(get_db)
+    , user_id: UUID = Path(...)
+) -> UserSchema:
+    user = UserGetManager(db).get_user(user_id)
+    if user:
+        return user
+    else:
+        raise HTTPException(status_code=401, detail="invalid user id")
+
+@router.post("/create_user", response_model=UserSchema)
+async def create_user(
+    db: Session = Depends(get_db),
+    new_user: UserCreateSchema = Depends(UserCreateSchema)
+) -> UserSchema:
+    user = UserCreateManager(db).create_user(new_user)
+    return user
+
+@router.post("/login")
+async def login(db: Session = Depends(get_db), creds: UserLoginSchema = Depends(UserLoginSchema)):
+    user = UserLoginManager(db).login_user(creds.username, creds.password)
+    if user:
+        token_values = {
+            "username": user.username,
+            "id": user.id
+        }
+        return {
+            "token": auth.create_access_token(token_values),
+            "type": "Bearer"
+        }
+    else:
+        raise HTTPException(status_code=401, detail="invalid credentials")
+
+@router.post("/update_user")
+async def update_user(db: Session = Depends(get_db), creds: UserUpdateSchema = Depends(UserUpdateSchema), payload: dict = Depends(auth.verify_token)):
+    user_id = payload.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="i cant find this user")
+    new_user = UserUpdateManager(db).update_user(user_id, creds)
+    return new_user
+
+============================================================
+Файл: ./api/tasks_routers.py
+============================================================
+from re import L
+from fastapi import APIRouter, Depends, HTTPException, status, Security
+from sqlalchemy.orm import Session
+from typing import List
+from uuid import UUID
+
+from schemas.tasks_schemas import TaskSchema, TaskCreateSchema, TaskUpdateSchema
+from schemas.user_schemas import UserSchema, UserBase
+from services.tasks_services import TaskCreateManager, TaskGetManager, TaskUpdateManager, TaskDeleteManager
+from core.database import get_db
+from core.security import auth
+from models.tasks_models import TaskStatus
+
+router = APIRouter()
+
+
+@router.post("/my_tasks")
+async def get_current_user_tasks_endpoint(
+    db: Session = Depends(get_db),
+    payload: dict = Depends(auth.verify_token)
+) -> List[TaskSchema]:
+    user_id = payload.get('id')
+
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User ID not found in token")
+
+    task_manager = TaskGetManager(db)
+    return task_manager.get_tasks_user_id(user_id)
+
+@router.post("/create_task")
+async def create_task(
+    db: Session = Depends(get_db),
+    task: TaskCreateSchema = Depends(TaskCreateSchema),
+    payload: dict = Depends(auth.verify_token)
+) -> TaskSchema:
+    user_id = payload.get('id')
+
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="user id not found in token")
+
+    task_manager = TaskCreateManager(db)
+    return task_manager.create_task(task, user_id)
+
+
+@router.post("/update_task")
+async def update_task(
+    task: TaskUpdateSchema,
+    db: Session = Depends(get_db),
+    payload: dict = Depends(auth.verify_token)
+) -> TaskSchema:
+    user_id = payload.get('id')
+
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+    task_manager = TaskUpdateManager(db)
+    return task_manager.update_task(task, user_id, task.id)
+
+============================================================
+Файл: ./services/user_services.py
+============================================================
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from models.user_models import User
+from schemas.user_schemas import UserCreateSchema, UserUpdateSchema
+from uuid import UUID
+from fastapi import HTTPException, status
+
+class UserCreateManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_user(self, user: UserCreateSchema) -> User:
+        existing_user = self.db.query(User).filter(
+            (User.email == user.email) | (User.username == user.username)
+        ).first()
+
+        if existing_user:
+            if existing_user.email == user.email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already taken"
+                )
+        db_user = User(
+            email=user.email,
+            username=user.username,
+            password=user.password
+        )
+        try:
+            self.db.add(db_user)
+            self.db.commit()
+            self.db.refresh(db_user)
+            return db_user
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already exists"
+            )
+
+class UserGetManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_user(self, user_id: UUID) -> User:
+        return self.db.query(User).filter(User.id == user_id).first()
+
+    def get_all_users(self) -> list[User]:
+        return self.db.query(User).all()
+
+class UserLoginManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def login_user(self, username: str, password: str) -> User:
+        user = self.db.query(User).filter(User.username == username).first()
+        if user and user.password == password:
+            return user
+        return None
+
+class UserUpdateManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def update_user(self, id: str, user: UserUpdateSchema) -> User:
+        existing_user = self.db.query(User).filter(User.id == id).first()
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if user.email:
+            email_conflict = self.db.query(User).filter(
+                User.email == user.email,
+                User.id != id
+            ).first()
+            if email_conflict:
+                raise HTTPException(status_code=400, detail="Email is already registered")
+
+        if user.username:
+            username_conflict = self.db.query(User).filter(
+                User.username == user.username,
+                User.id != id
+            ).first()
+            if username_conflict:
+                raise HTTPException(status_code=400, detail="Username is already registered")
+
+        update_data = user.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(existing_user, field, value)
+
+        try:
+            self.db.commit()
+            self.db.refresh(existing_user)
+            return existing_user
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail="Database integrity error")
+
+============================================================
+Файл: ./services/__init__.py
+============================================================
+
+============================================================
+Файл: ./services/tasks_services.py
+============================================================
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
+from models.tasks_models import Task
+from schemas.tasks_schemas import TaskCreateSchema, TaskUpdateSchema
+from uuid import UUID
+
+
+class TaskRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_task(self, task_id: UUID, user_id: int) -> Task | None:
+        return self.db.query(Task).filter(
+            Task.id == task_id,
+            Task.user_id == user_id
+        ).first()
+
+class TaskCreateManager(TaskRepository):
+    def create_task(self, task: TaskCreateSchema, user_id: int) -> Task:
+        task_data = task.model_dump()
+        task_data['user_id'] = user_id
+        db_task = Task(**task_data)
+        self.db.add(db_task)
+        self.db.commit()
+        self.db.refresh(db_task)
+        return db_task
+
+class TaskGetManager(TaskRepository):
+    def get_tasks_user_id(self, user_id: int) -> list[Task]:
+        return self.db.query(Task).filter(
+            Task.user_id == user_id
+        ).all()
+
+class TaskUpdateManager(TaskRepository):
+    def update_task(self, task: TaskUpdateSchema, user_id: int, task_id: UUID) -> Task | None:
+
+        db_task = self.get_task(task_id, user_id)
+
+        if not db_task:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        update_data = task.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_task, key, value)
+
+        self.db.commit()
+        self.db.refresh
+        return db_task
+
+class TaskDeleteManager(TaskRepository):
+    def delete_task(self, task_id: UUID) -> Task | None:
+        db_task = self.get_task(task_id)
+        if db_task:
+            self.db.delete(db_task)
+            self.db.commit()
+        return db_task
+
+============================================================
+Файл: ./models/tasks_models.py
+============================================================
+import uuid
+from sqlalchemy import Column, String, Enum as SQLEnum, Integer, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from core.database import Base
+from enum import Enum
+
+
+class TaskStatus(Enum):
+    CREATED = "created"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    name = Column(String, index=True)
+    description = Column(String)
+    status = Column(SQLEnum(TaskStatus, name="taskstatus", values_callable=lambda x: [e.value for e in x]), default=TaskStatus.CREATED)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="tasks")
+
+============================================================
+Файл: ./models/__init__.py
+============================================================
+
+============================================================
+Файл: ./models/user_models.py
+============================================================
+from sqlalchemy import Column, String, DateTime, Integer
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from core.database import Base
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    tasks = relationship("Task", back_populates="user")
