@@ -13,4 +13,3 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     tasks = relationship("Task", back_populates="user")
-    friends = relationship("Friends", back_populates="friends")
